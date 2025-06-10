@@ -1,19 +1,35 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
+import pymysql
+
+load_dotenv()
 
 app = FastAPI()
 
-# CORS Configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Database configuration
+def get_db_connection():
+    return pymysql.connect(
+        host="mysql",
+        user=os.getenv("MYSQL_USER"),
+        password=os.getenv("MYSQL_PASSWORD"),
+        database=os.getenv("MYSQL_DATABASE"),
+        cursorclass=pymysql.cursors.DictCursor
+    )
 
 @app.get("/")
-def read_root():
-    return {"message": "Hello from FastAPI!"}
+async def root():
+    return {"message": "Hello World"}
 
-# Database setup would go here
+@app.get("/test-db")
+async def test_db():
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT VERSION() as version")
+            result = cursor.fetchone()
+        return {"database_status": "connected", "version": result["version"]}
+    except Exception as e:
+        return {"database_status": "error", "details": str(e)}
+    finally:
+        connection.close()
